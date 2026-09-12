@@ -276,8 +276,8 @@ function jpegResultToBytes(item) {
  * ---- PDF filter name plumbing --------------------------------------------
  */
 
-function filterNamesOf(dict) {
-  const filter = dict.get(PDFName.of("Filter"));
+function filterNamesOf(context, dict) {
+  const filter = context.lookup(dict.get(PDFName.of("Filter")));
 
   if (!filter) return [];
 
@@ -286,18 +286,14 @@ function filterNamesOf(dict) {
   }
 
   if (filter instanceof PDFArray) {
-    return filter.asArray().map((f) => f.asString().replace(/^\//, ""));
+    return filter.asArray().map((f) => {
+      const resolved = context.lookup(f);
+      return resolved instanceof PDFName ? resolved.asString().replace(/^\//, "") : "";
+    }).filter(Boolean);
   }
 
   return [];
 }
-
-const IMAGE_CODEC_FILTERS = new Set([
-  "DCTDecode",
-  "JPXDecode",
-  "CCITTFaxDecode",
-  "JBIG2Decode",
-]);
 
 /*
  * ---- ColorSpace resolution --------------------------------------------
@@ -518,11 +514,12 @@ async function decodeImageXObject(context, ref) {
   // values — recompressing would break it, so skip these entirely.
   if (dict.get(PDFName.of("Mask"))) return null;
 
-  const filterNames = filterNamesOf(dict);
-  const lastFilter = filterNames[filterNames.length - 1];
-
-  if (lastFilter === "JPXDecode" || lastFilter === "CCITTFaxDecode" || lastFilter === "JBIG2Decode") {
-    return { unsupported: true, reason: lastFilter };
+  const filterNames = filterNamesOf(context, dict);
+  
+  // Skip explicitly unhandled compression formats natively
+  const unsupported = filterNames.find(f => f === "JPXDecode" || f === "CCITTFaxDecode" || f === "JBIG2Decode");
+  if (unsupported) {
+    return { unsupported: true, reason: unsupported };
   }
 
   const width = dict.get(PDFName.of("Width"))?.asNumber?.();
@@ -535,10 +532,35 @@ async function decodeImageXObject(context, ref) {
   let bitmap;
   let hasAlpha = false;
 
-  if (lastFilter === "DCTDecode") {
-    // Already a JPEG file (decodePDFRawStream only inverts general stream
-    // filters like Flate/LZW, it leaves the image codec itself alone).
-    const jpegBytes = decodePDFRawStream(stream).decode();
+  if (filterNames.includes("DCTDecode")) {
+    // pdf-lib's decodePDFRawStream throws on DCTDecode because it natively lacks a 
+    // mechanism to decode JPEGs to raw samples. We must extract the bytes dynamically 
+    // whilst bypassing the "DCTDecode" step inside its pipeline filter.
+    let jpegBytes;
+    const originalFilterVal = dict.get(PDFName.of("Filter"));
+    const filterObj = context.lookup(originalFilterVal);
+
+    if (filterNames.length > 1 && filterObj instanceof PDFArray) {
+      const filtered = filterObj.asArray().filter((f) => {
+        const resolved = context.lookup(f);
+        return resolved instanceof PDFName && resolved.asString() !== "/DCTDecode";
+      });
+
+      if (filtered.length === 0) {
+        jpegBytes = stream.contents;
+      } else {
+        dict.set(PDFName.of("Filter"), context.obj(filtered));
+        try {
+          jpegBytes = decodePDFRawStream(stream).decode();
+        } finally {
+          dict.set(PDFName.of("Filter"), originalFilterVal);
+        }
+      }
+    } else {
+      // It's just a raw DCTDecode stream (most common).
+      jpegBytes = stream.contents;
+    }
+
     const blob = new Blob([jpegBytes], { type: "image/jpeg" });
     bitmap = await createImageBitmap(blob);
   } else {
