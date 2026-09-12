@@ -1,7 +1,7 @@
 {
   "name": "compress-pdf-lib",
-  "version": "1.0.4",
-  "description": "Client-side PDF compression: pdf.js render + mozjpeg (WASM) encoding via a parallel worker pool + pdf-lib rebuild. No server, no UI. Ships as raw ESM source for Vite-based apps (React + Vite, Astro).",
+  "version": "1.0.5",
+  "description": "Client-side PDF compression: extract & recompress embedded images with hardware-accelerated native Canvas / libjpeg-turbo + pdf-lib rebuild. No server, no UI. Ships as raw ESM source for Vite-based apps (React + Vite, Astro).",
   "type": "module",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -23,7 +23,7 @@
     "compression",
     "compress-pdf",
     "jpeg",
-    "mozjpeg",
+    "canvas",
     "pdfjs",
     "pdf-lib",
     "vite",
@@ -34,8 +34,7 @@
   "license": "MIT",
   "dependencies": {
     "pdfjs-dist": "^6.3.289",
-    "pdf-lib": "^1.17.1",
-    "@jsquash/jpeg": "^1.4.0"
+    "pdf-lib": "^1.17.1"
   },
   "publishConfig": {
     "access": "public"
