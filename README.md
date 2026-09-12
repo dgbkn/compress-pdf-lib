@@ -31,7 +31,7 @@ npm install compress-pdf-lib
 Or, straight from GitHub without publishing to npm:
 
 ```bash
-npm install github:YOUR_GITHUB_USERNAME/compress-pdf-lib
+npm install github:dgbkn/compress-pdf-lib
 ```
 
 ## Usage
