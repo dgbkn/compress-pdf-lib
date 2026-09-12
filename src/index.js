@@ -1,1 +1,6 @@
-export { compressPDF, getClientPower, CompressionPool } from "./compress.js";
+export {
+  compressPDF,
+  rasterizePDF,
+  getClientPower,
+  CompressionPool,
+} from "./compress.js";
