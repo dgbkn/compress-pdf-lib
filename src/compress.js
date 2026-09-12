@@ -238,7 +238,7 @@ async function normalizeInput(input) {
    RENDER + COMPRESS ONE PAGE
 ============================================================ */
 
-async function processPage(pdf, pool, pageNumber, totalPages, { quality, resolution }) {
+async function processPage(pdf, pool, pageNumber, totalPages, { quality, resolution, scale: fixedScale }) {
   let page = null;
   let canvas = null;
   let bitmap = null;
@@ -254,7 +254,15 @@ async function processPage(pdf, pool, pageNumber, totalPages, { quality, resolut
 
     let scale;
 
-    if (resolution === "original" || resolution === Infinity) {
+    if (typeof fixedScale === "number") {
+      /*
+       * Direct scale multiplier — same units as pdf.js's own
+       * page.getViewport({ scale }). 1 = native ~72 DPI, 2 = ~144 DPI,
+       * 3 = ~216 DPI (max allowed). Proportional across any page size,
+       * unlike a fixed pixel target.
+       */
+      scale = Math.max(0.25, Math.min(fixedScale, 3));
+    } else if (resolution === "original" || resolution === Infinity) {
       /*
        * No downscaling — render at the max allowed multiplier so page
        * quality is limited only by the JPEG quality setting, not by
@@ -337,7 +345,7 @@ async function processPage(pdf, pool, pageNumber, totalPages, { quality, resolut
    PARALLEL PAGE PIPELINE
 ============================================================ */
 
-async function processPages(pdf, pool, totalPages, { quality, resolution, workers, onProgress }) {
+async function processPages(pdf, pool, totalPages, { quality, resolution, scale, workers, onProgress }) {
   const results = new Array(totalPages);
 
   const renderConcurrency = Math.max(1, Math.min(workers, 4));
@@ -356,6 +364,7 @@ async function processPages(pdf, pool, totalPages, { quality, resolution, worker
       const result = await processPage(pdf, pool, pageNumber, totalPages, {
         quality,
         resolution,
+        scale,
       });
 
       results[pageNumber - 1] = result;
@@ -489,12 +498,24 @@ async function buildPdf(compressedPages, { originalBytes, startedAt, workersUsed
  * @param {number|"original"} [options.resolution=1600] - max px on the longest
  *   page side. Pass "original" (or Infinity) to skip downscaling entirely and
  *   rely on `quality` alone — renders at the max supported multiplier (3x).
+ *   Ignored if `scale` is set.
+ * @param {number} [options.scale] - direct render-scale multiplier (same units
+ *   as pdf.js's `page.getViewport({ scale })`), clamped to 0.25–3.
+ *   1 = native ~72 DPI, 2 ≈ 144 DPI, 3 ≈ 216 DPI (max). Proportional across
+ *   any page size, unlike `resolution`'s fixed pixel target. Takes
+ *   precedence over `resolution` when provided.
  * @param {number} [options.workers] - override auto-detected worker count
  * @param {(update: object) => void} [options.onProgress] - optional progress callback
  * @returns {Promise<{file: File|Blob, stats: object}>}
  */
 export async function compressPDF(input, options = {}) {
-  const { quality = 65, resolution = 1600, workers: workerOverride, onProgress } = options;
+  const {
+    quality = 65,
+    resolution = 1600,
+    scale,
+    workers: workerOverride,
+    onProgress,
+  } = options;
 
   const startedAt = performance.now();
 
@@ -519,6 +540,7 @@ export async function compressPDF(input, options = {}) {
     const compressedPages = await processPages(pdf, pool, totalPages, {
       quality,
       resolution,
+      scale,
       workers: workerCount,
       onProgress,
     });
