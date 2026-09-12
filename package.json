@@ -1,0 +1,51 @@
+{
+  "name": "compress-pdf-lib",
+  "version": "1.0.0",
+  "description": "Client-side PDF compression: pdf.js render + mozjpeg (WASM) encoding via a parallel worker pool + pdf-lib rebuild. No server, no UI. Ships as raw ESM source for Vite-based apps (React + Vite, Astro).",
+  "type": "module",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./worker": "./src/pdf-compressor.worker.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "src/pdf-compressor.worker.js"
+  ],
+  "keywords": [
+    "pdf",
+    "compression",
+    "compress-pdf",
+    "jpeg",
+    "mozjpeg",
+    "pdfjs",
+    "pdf-lib",
+    "vite",
+    "astro",
+    "react"
+  ],
+  "author": "Dev Goyal",
+  "license": "MIT",
+  "dependencies": {
+    "pdfjs-dist": "^4.0.379",
+    "pdf-lib": "^1.17.1",
+    "@jsquash/jpeg": "^1.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dgbkn/compress-pdf-lib.git"
+  },
+  "homepage": "https://github.com/dgbkn/compress-pdf-lib#readme",
+  "bugs": {
+    "url": "https://github.com/dgbkn/compress-pdf-lib/issues"
+  }
+}
