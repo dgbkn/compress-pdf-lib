@@ -252,9 +252,20 @@ async function processPage(pdf, pool, pageNumber, totalPages, { quality, resolut
 
     const largestDimension = Math.max(pdfWidth, pdfHeight);
 
-    let scale = resolution / largestDimension;
-    scale = Math.max(scale, 0.25);
-    scale = Math.min(scale, 3);
+    let scale;
+
+    if (resolution === "original" || resolution === Infinity) {
+      /*
+       * No downscaling — render at the max allowed multiplier so page
+       * quality is limited only by the JPEG quality setting, not by
+       * resizing.
+       */
+      scale = 3;
+    } else {
+      scale = resolution / largestDimension;
+      scale = Math.max(scale, 0.25);
+      scale = Math.min(scale, 3);
+    }
 
     const viewport = page.getViewport({ scale });
     const width = Math.ceil(viewport.width);
@@ -475,7 +486,9 @@ async function buildPdf(compressedPages, { originalBytes, startedAt, workersUsed
  * @param {File|Blob|ArrayBuffer|ArrayBufferView} input
  * @param {Object} [options]
  * @param {number} [options.quality=65] - JPEG quality, 0-100
- * @param {number} [options.resolution=1600] - max px on the longest page side
+ * @param {number|"original"} [options.resolution=1600] - max px on the longest
+ *   page side. Pass "original" (or Infinity) to skip downscaling entirely and
+ *   rely on `quality` alone — renders at the max supported multiplier (3x).
  * @param {number} [options.workers] - override auto-detected worker count
  * @param {(update: object) => void} [options.onProgress] - optional progress callback
  * @returns {Promise<{file: File|Blob, stats: object}>}
